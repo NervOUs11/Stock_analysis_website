@@ -7,28 +7,7 @@ from typing import Optional
 from getData import get_financial_data
 
 
-# def display_financial_statement(title: str, df: pd.DataFrame) -> None:
-#     st.subheader(title + " (in millions)")
-#     if isinstance(df, pd.DataFrame) and not df.empty:  # Check if df is a DataFrame and not empty
-#         # Format the dates for display
-#         df = df.copy()  # avoid modifying original
-#         try:
-#             df.columns = df.columns.strftime('%Y-%m-%d')
-#         except AttributeError:
-#             st.warning(f"Dataframe columns are not datetime objects for {title}.  Skipping date formatting.")
-#         st.dataframe(df)
-#     elif df is None:
-#         st.write(f"No {title} available.")
-#     else:
-#         st.write(f"{title} is empty.")
 def display_financial_statement(title: str, df: pd.DataFrame) -> None:
-    """
-    Displays a financial statement DataFrame in a Streamlit application.
-
-    Args:
-        title (str): The title of the financial statement.
-        df (pd.DataFrame): The DataFrame containing the financial statement data.
-    """
     st.subheader(title)
     if isinstance(df, pd.DataFrame) and not df.empty: # Check if df is a DataFrame and not empty
         # Format the dates for display
