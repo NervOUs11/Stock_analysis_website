@@ -1,80 +1,102 @@
 import pandas as pd
 import streamlit as st
 from getData import get_financial_data
+from showData import display_financial_statement, display_financial_chart
 
-st.set_page_config( page_title="Stock Financial Snapshot", layout="wide")
+st.set_page_config(page_title="Stock Financial Snapshot", layout="wide")
 
-def display_financial_statement(title: str, df: pd.DataFrame) -> None:
-    st.subheader(title)
-    if isinstance(df, pd.DataFrame) and not df.empty: # Check if df is a DataFrame and not empty
-        # Format the dates for display
-        df = df.copy()  # avoid modifying original
-        cols_to_convert = [col for col in df.index if col not in ["Basic EPS", "Diluted EPS"]]
-        df.loc[cols_to_convert] = df.loc[cols_to_convert] / 1e6
-        df = df.map(lambda x: f"{x:,.2f}" if isinstance(x, (int, float)) else x)
-        try:
-            df.columns = df.columns.strftime('%Y-%m-%d')
-        except AttributeError:
-            st.warning(f"Dataframe columns are not datetime objects for {title}.  Skipping date formatting.")
-        st.dataframe(df)
-    elif df is None:
-        st.write(f"No {title} available.")
-    else:
-        st.write(f"{title} is empty.")
+
+def safe_format(value, format_string="{:,.2f}"):
+    """Enhanced helper to format metrics, including large number scaling."""
+    if value is None or pd.isna(value):
+        return "N/A"
+
+    # If it's a large number and we want human-readable scaling (K, M, B, T)
+    if isinstance(value, (int, float)) and value >= 1000:
+        for unit in ['', 'K', 'M', 'B', 'T']:
+            if abs(value) < 1000:
+                return f"{value:,.1f}{unit}"
+            value /= 1000
+        return f"{value:,.1f}P"  # Peta for extreme cases
+
+    if isinstance(value, str):
+        return value
+
+    return format_string.format(value)
 
 
 def main():
-    st.title("💰 Stock Financial Snapshot")
-    st.markdown("<p class='info-text'>Enter a stock symbol and country to get a quick financial overview.</p>", unsafe_allow_html=True)
+    # st.title("Stock Financial Snapshot")
+    left_co, cent_co, last_co = st.columns([1, 2, 1])
 
-    # image_url = "./image/image1.jpeg"
-    # st.image(image_url, width=150)
+    with cent_co:
+        image_url = "./image/Logo.png"
+        st.image(image_url, use_container_width=True)
 
-    # User inputs
-    input1, input2 = st.columns(2)
-    with input1:
-        stock_symbol = st.text_input("Enter Stock Symbol (e.g., AAPL):").upper()
-    with input2:
-        country = st.text_input("Enter Country Where Stock Is Traded (e.g., US):").upper()
+    stock_symbol = st.text_input("Enter Stock Symbol (e.g., AAPL):").strip().upper()
 
-    if stock_symbol and country:
-        if country == "US":
-            full_symbol = stock_symbol
-        else:
-            full_symbol = f"{stock_symbol}.{country.upper()}"
-
-        financial_data = get_financial_data(full_symbol, years=4)
+    if stock_symbol:
+        with st.spinner(f"Fetching data for {stock_symbol}..."):
+            financial_data = get_financial_data(stock_symbol)
 
         if financial_data:
             st.markdown("<hr>", unsafe_allow_html=True)
+
+            # --- Key Metrics ---
             st.subheader("Key Metrics")
             col1, col2 = st.columns(2)
             with col1:
-                st.metric("Market Cap", f"{financial_data['market_cap']:,}")
-                st.metric("Stock Price", f"{financial_data['currentPrice']:.2f}")
+                st.metric("Market Cap", safe_format(financial_data.get('market_cap'), "{:,}"))
+                st.metric("Stock Price", safe_format(financial_data.get('currentPrice'), "${:,.2f}"))
             with col2:
-                st.metric("PE Ratio", f"{financial_data['currentPE']:.2f}")
-                st.metric("Forward PE", f"{financial_data['forwardPE']:.2f}")
+                st.metric("PE Ratio", safe_format(financial_data.get('currentPE')))
+                st.metric("Forward PE", safe_format(financial_data.get('forwardPE')))
 
+            # --- Free Cash Flow ---
             st.subheader("Free Cash Flow")
             col3, col4 = st.columns(2)
             with col3:
-                st.metric("FCF per Share", f"{financial_data['free_cash_flow_per_share']:.2f}")
-                st.metric("FCF per Share (Adjusted)", f"{financial_data['free_cash_flow_per_share_adjusted']:.2f}")
+                st.metric("FCF per Share", safe_format(financial_data.get('free_cash_flow_per_share'), "${:,.2f}"))
+                st.metric("FCF per Share (Adjusted)",
+                          safe_format(financial_data.get('free_cash_flow_per_share_adjusted'), "${:,.2f}"))
             with col4:
-                st.metric("FCF Yield", f"{financial_data['free_cash_flow_yield']}")
-                st.metric("FCF Yield (Adjusted)", f"{financial_data['free_cash_flow_yield_adjusted']}")
+                st.metric("FCF Yield", safe_format(financial_data.get('free_cash_flow_yield')))
+                st.metric("FCF Yield (Adjusted)", safe_format(financial_data.get('free_cash_flow_yield_adjusted')))
 
             st.markdown("<hr>", unsafe_allow_html=True)
-            st.subheader("Financial Statements")
-            display_financial_statement("Income Statement", financial_data['income_statement'])
-            display_financial_statement("Cash Flow Statement", financial_data['cash_flow'])
-            display_financial_statement("Balance Sheet", financial_data['balance_sheet'])
+
+            # --- Financial Statements ---
+            # st.subheader("Financial Statements (in Millions)")
+            # display_financial_statement("Income Statement", financial_data.get('income_statement'))
+            # display_financial_statement("Cash Flow Statement", financial_data.get('cash_flow'))
+            # display_financial_statement("Balance Sheet", financial_data.get('balance_sheet'))
+            chart_col1, chart_col2 = st.columns(2)
+            chart_col3, chart_col4 = st.columns(2)
+            chart_col5, chart_col6 = st.columns(2)
+            chart_col7, chart_col8 = st.columns(2)
+
+            with chart_col1:
+                display_financial_chart("Total Revenue", financial_data['income_statement'],
+                                        "Total Revenue")
+            with chart_col2:
+                display_financial_chart("Net Income", financial_data['income_statement'],
+                                        "Net Income", colors=["#28a745"])
+            with chart_col3:
+                display_financial_chart("EPS", financial_data['income_statement'],
+                                        "Diluted EPS", ["#17a2b8"])
+            with chart_col4:
+                display_financial_chart("Long Term Debt", financial_data['balance_sheet'],
+                                        "Long Term Debt", ["#ffc107"])
+            with chart_col5:
+                display_financial_chart("FCF vs stock base comp", financial_data['cash_flow'],
+                                        ["Stock Based Compensation", "Free Cash Flow"],
+                                        ["#0068c9", "#28a745"])
+            with chart_col6:
+                display_financial_chart("Dividend", financial_data['cash_flow'],
+                                        "Common Stock Dividend Paid",
+                                        ["#0068c9"])
         else:
-            st.error(
-                f"Could not retrieve financial statements for {full_symbol}. Please check the symbol and country.")
-    else:
-        st.info("Enter a stock symbol and country to explore financial data.")
+            st.error(f"Could not retrieve financial statements for {stock_symbol}. Please check the symbol.")
 
 
 if __name__ == "__main__":
