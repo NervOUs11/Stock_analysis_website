@@ -2,6 +2,7 @@ import yfinance as yf
 import numpy as np
 from typing import Optional
 import streamlit as st
+from curl_cffi import requests
 
 
 def get_financial_data(symbol: str) -> Optional[dict]:
@@ -11,7 +12,8 @@ def get_financial_data(symbol: str) -> Optional[dict]:
     years = 4
 
     try:
-        stock = yf.Ticker(symbol)
+        session = requests.Session(impersonate="chrome")
+        stock = yf.Ticker(symbol, session=session)
 
         # Fetch financial statements
         income_statement = stock.income_stmt
@@ -37,29 +39,31 @@ def get_financial_data(symbol: str) -> Optional[dict]:
             income_statement = income_statement.iloc[:, :years]
             income_statement = income_statement.reindex(
                 ["Total Revenue", "Gross Profit", "Operating Income",
-                 "Pretax Income", "Tax Provision", "Net Income", "Basic EPS", "Diluted EPS"]
+                 "Net Income", "Diluted EPS"]
             ).dropna(how='all')
 
         if balance_sheet is not None and not balance_sheet.empty:
             balance_sheet = balance_sheet.iloc[:, :years]
             balance_sheet = balance_sheet.reindex(
-                ["Current Assets", "Total Assets", "Current Liabilities",
-                 "Total Liabilities Net Minority Interest", "Long Term Debt", "Retained Earnings",
-                 "Stockholders Equity"]
+                # ["Current Assets", "Total Assets", "Current Liabilities",
+                #  "Total Liabilities Net Minority Interest", "Long Term Debt", "Retained Earnings",
+                #  "Stockholders Equity"]
+                ["Long Term Debt", "Retained Earnings"]
             ).dropna(how='all')
 
             # Calculate Total Liabilities and Equity
-            if ('Total Liabilities Net Minority Interest' in balance_sheet.index
-                    and 'Stockholders Equity' in balance_sheet.index):
-                balance_sheet.loc['Total Liabilities and Equity'] = (
-                        balance_sheet.loc['Total Liabilities Net Minority Interest'] +
-                        balance_sheet.loc['Stockholders Equity']
-                )
+            # if ('Total Liabilities Net Minority Interest' in balance_sheet.index
+            #         and 'Stockholders Equity' in balance_sheet.index):
+            #     balance_sheet.loc['Total Liabilities and Equity'] = (
+            #             balance_sheet.loc['Total Liabilities Net Minority Interest'] +
+            #             balance_sheet.loc['Stockholders Equity']
+            #     )
 
         if cash_flow is not None and not cash_flow.empty:
             cash_flow = cash_flow.iloc[:, :years]
             cash_flow = cash_flow.reindex(
-                ["Operating Cash Flow", "Investing Cash Flow", "Financing Cash Flow",
+                ["Operating Cash Flow",
+                 # "Investing Cash Flow", "Financing Cash Flow",
                  "Common Stock Dividend Paid", "Repurchase Of Capital Stock",
                  "Capital Expenditure", "Stock Based Compensation", "Free Cash Flow"]
             ).dropna(how='all')
