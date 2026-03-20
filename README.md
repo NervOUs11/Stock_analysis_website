@@ -9,5 +9,5 @@ pip install -r requirements.txt
 ````
 Run the app
 ````commandline
-streamlit run app.py 
+python app.py 
 ````
